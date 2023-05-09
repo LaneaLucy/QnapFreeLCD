@@ -1,4 +1,4 @@
-!/usr/bin/ksh
+#!/usr/bin/ksh
 #
 # function library sample for lcd-control, version 0.3
 # original author Dirk Brenken (dibdot@gmail.com)
