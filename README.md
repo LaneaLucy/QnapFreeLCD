@@ -4,11 +4,12 @@ Original author Dirk Brenken (dibdot@gmail.com)
 
 Modified by Justin Duplessis (drfoliberg@gmail.com)
 
+Modified by Lanea Lucy Schwarz [lanealucy@gmail.com)
+
 WARNING
 ========
-This is a developer version, at the time of writing it was only tested on a TS-439 and TS-509 PRO.
-Even though I use it in my productive environment, I strongly recommend that you only use it for further testing and debugging.
-This script is only for QNAP-devices which running debian (possibly ubuntu)(stock QNAP firmware currently not supported!).
+This is a developer version, at the time of writing it was only tested on a TS-435 PRO.
+This script is only for QNAP-devices which running debian (possibly Truenas SCALE)(stock QNAP firmware currently not supported!).
 
 SCOPE
 ======
@@ -40,8 +41,10 @@ version 0.2: fix trap/exit issues
 
 version 0.3: fixed data refresh when lcd is off
 
+version 0.7:  fixed IP var, added support for multiple zpool's and get hdd temp for every hdd
+
 TODO
 =====
-- add back mdadm support alongside zfs
+- add back and fix root disk information
 - run moar tests!
 
