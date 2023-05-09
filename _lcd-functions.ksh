@@ -39,7 +39,7 @@
 # ==========
 # version 0.1: initial test release
 # version 0.2: added usable functions for out-of-box usage
-# version 0.3: added support for multiple zpool's and get hdd temp for every hdd (tested with TrueNAS-SCALE-22.12.2)
+# version 0.7: added support for multiple zpool's and get hdd temp for every hdd (tested with TrueNAS-SCALE-22.12.2)
 #
 # Have fun!
 # 
