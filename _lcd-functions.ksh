@@ -1,12 +1,13 @@
-#!/usr/bin/ksh
+!/usr/bin/ksh
 #
-# function library sample for lcd-control, version 0.2
+# function library sample for lcd-control, version 0.3
 # original author Dirk Brenken (dibdot@gmail.com)
 # modified by Justin Duplessis (drfoliberg@gmail.com)
+# modified by Lanea Lucy Schwarz (lanealucy@gmail.com)
 #
 #   LICENSE
 #   ============
-#   QnapFreeLcd Copyright (C) 2014 Dirk Brenken and Justin Duplessis
+#   QnapFreeLcd Copyright (C) 2014 Dirk Brenken, Justin Duplessis and Lanea Lucy Schwarz
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -38,6 +39,7 @@
 # ==========
 # version 0.1: initial test release
 # version 0.2: added usable functions for out-of-box usage
+# version 0.3: added support for multiple zpool's and get hdd temp for every hdd (tested with TrueNAS-SCALE-22.12.2)
 #
 # Have fun!
 # 
@@ -63,7 +65,7 @@ set -A ROW
 INDEX=${#ROW[@]}
 # query
 HOST="$(hostname)"
-IP=$(ifconfig | grep "inet addr" | cut -d: -f2 | cut -f 1 -d " " | grep -v "127.0.")
+IP=$(/usr/sbin/ifconfig | grep "inet " | cut -d: -f2 | cut -f 10 -d " " | grep -v "127.0." | grep -v "172.")
 # result
 ROW[${INDEX}]="${HOST}"
 (( INDEX ++ ))
@@ -79,14 +81,14 @@ INDEX=${#ROW[@]}
 # query
 OS_LINE="Unknown";
 if [ -f /etc/lsb-release ];then
-	OS_LINE=$(cat /etc/lsb-release | grep -i DISTRIB_DESCRIPTION | cut -d "\"" -f 2)
+        OS_LINE=$(cat /etc/lsb-release | grep -i DISTRIB_DESCRIPTION | cut -d "\"" -f 2)
 elif [ -f /etc/os-release ];then
-	echo "/etc/lsb-release not found, using /etc/os-release !"
-	OS_NAME=$(cat /etc/os-release | grep ^ID= | cut -c 4-)
-	OS_VERSION=$(cat /etc/os-release | grep -i ^Version= | cut -d "\"" -f 2)
-	OS_LINE="$OS_NAME $OS_VERSION"
+        echo "/etc/lsb-release not found, using /etc/os-release !"
+        OS_NAME=$(cat /etc/os-release | grep ^ID= | cut -c 4-)
+        OS_VERSION=$(cat /etc/os-release | grep -i ^Version= | cut -d "\"" -f 2)
+        OS_LINE="$OS_NAME $OS_VERSION"
 else
-	echo "Could not find proper file to retreive OS info."
+        echo "Could not find proper file to retreive OS info."
 fi
 #kernel info
 KERNEL=$(uname -r)
@@ -95,25 +97,25 @@ ROW[${INDEX}]=$OS_LINE
 (( INDEX ++ ))
 ROW[${INDEX}]="${KERNEL}"
 
-#-------------------------------------------------------------------------------
-# 3. root disk space
-# get volume/space information
-#-------------------------------------------------------------------------------
-#
-# get current index count as start value
-INDEX=${#ROW[@]}
-# query
-df -hlT |\
-egrep "^/dev.*(ext3|ext4)" |\
-sort -k7 |\
-while read device type space used free percent mount
-do
-    # result
-    ROW[${INDEX}]="${mount}  ${type}"
-    (( INDEX ++ ))
-    ROW[${INDEX}]="${space}  ${free}  ${percent}"
-    (( INDEX ++ ))
-done
+##-------------------------------------------------------------------------------
+## 3. root disk space
+## get volume/space information
+##-------------------------------------------------------------------------------
+##
+## get current index count as start value
+#INDEX=${#ROW[@]}
+## query
+#df -hlT |\
+#egrep "^/dev.*(ext3|ext4)" |\
+#sort -k7 |\
+#while read device type space used free percent mount
+#do
+#    # result
+#    ROW[${INDEX}]="${mount}  ${type}"
+#    (( INDEX ++ ))
+#    ROW[${INDEX}]="${space}  ${free}  ${percent}"
+#    (( INDEX ++ ))
+#done
 
 #-------------------------------------------------------------------------------
 # 4. Pool info (zfs or mdadm)
@@ -126,14 +128,14 @@ R_DEVICES=""
 
 if (( $(whereis zfs | wc -w) != 1 ))
 then
-	ZFS_POOLS=$(zpool list -H | wc -l)
-	echo "Found $ZFS_POOLS zfs pools !"
+        ZFS_POOLS=$(zpool list -H | wc -l)
+        echo "Found $ZFS_POOLS zfs pools !"
 fi
 
 if (( $(whereis mdadm | wc -w) != 1 ))
 then
-	MDADM_POOLS=$(ls -1 /dev/md*  | egrep /dev/md'[0-9]+' | wc -l)
-	echo "Found $MDADM_POOLS mdadm pools !"
+        MDADM_POOLS=$(ls -1 /dev/md*  | egrep /dev/md'[0-9]+' | wc -l)
+        echo "Found $MDADM_POOLS mdadm pools !"
 fi
 
 #-------------------------------------------------------------------------------
@@ -144,19 +146,22 @@ fi
 # get current index count as start value
 if (( $ZFS_POOLS > 0 ))
 then
-	INDEX=${#ROW[@]}
-	# query
-	PREV_TOTAL=0
-	PREV_IDLE=0
-	FREE=$(zpool list -H | cut -f 4)
-	HEALTH=$(zpool list -H | cut -f 7)
-	CAP=$(zpool list -H | cut -f 5)
-	# result
-	ROW[${INDEX}]="$(zpool list -H | cut -f 1) $(zpool list -H | cut -f 2)"
-	(( INDEX ++ ))
-	ROW[${INDEX}]="$FREE $CAP-$HEALTH"
-	(( INDEX ++ ))
-	R_DEVICES=$(zpool status | grep sd | awk '{print "/dev/"$1}')
+        for i in {1..$ZFS_POOLS}
+        do
+                INDEX=${#ROW[@]}
+                # query
+                PREV_TOTAL=0
+                PREV_IDLE=0
+                FREE=$(zpool list -H | cut -f 4 | sed -n $i'p')
+                HEALTH=$(zpool list -H | cut -f 10 | sed -n $i'p')
+                CAP=$(zpool list -H | cut -f 8| sed -n $i'p')
+                # result
+                ROW[${INDEX}]="$(zpool list -H | cut -f 1 | sed -n $i'p') $(zpool list -H | cut -f 2 | sed -n $i'p')"
+                (( INDEX ++ ))
+                ROW[${INDEX}]="$FREE $CAP $HEALTH"
+                (( INDEX ++ ))
+        done
+        R_DEVICES=$(zpool status | grep sd | awk '{print "/dev/"$1}')
 fi
 
 #-------------------------------------------------------------------------------
@@ -168,20 +173,20 @@ fi
 # get current index count as start value
 if (( $MDADM_POOLS > 0 ))
 then
-	for ARRAY in $(ls -1 /dev/md*  | egrep /dev/md'[0-9]+')
-	do
-		INDEX=${#ROW[@]}
-		# query
-		MDADM_INFO=$(mdadm -D $ARRAY)
-		R_LEVEL=$(echo "$MDADM_INFO"| grep -o "raid[0-9].*")
-		R_STATE=$(echo "$MDADM_INFO"| grep -o "State :.*")
-		R_DEVICES=$(echo "$MDADM_INFO"| grep -o " /dev/s.*")
-		# result
-		ROW[${INDEX}]="$(echo $ARRAY | cut -d "/" -f 3) : ${R_LEVEL}"
-		(( INDEX ++ ))
-		ROW[${INDEX}]="${R_STATE}"
-		(( INDEX ++ ))
-	done
+        for ARRAY in $(ls -1 /dev/md*  | egrep /dev/md'[0-9]+')
+        do
+                INDEX=${#ROW[@]}
+                # query
+                MDADM_INFO=$(mdadm -D $ARRAY)
+                R_LEVEL=$(echo "$MDADM_INFO"| grep -o "raid[0-9].*")
+                R_STATE=$(echo "$MDADM_INFO"| grep -o "State :.*")
+                R_DEVICES=$(echo "$MDADM_INFO"| grep -o " /dev/s.*")
+                # result
+                ROW[${INDEX}]="$(echo $ARRAY | cut -d "/" -f 3) : ${R_LEVEL}"
+                (( INDEX ++ ))
+                ROW[${INDEX}]="${R_STATE}"
+                (( INDEX ++ ))
+        done
 fi
 
 
@@ -192,19 +197,19 @@ fi
 #
 # get current index count as start value
 if [ "$R_DEVICES" != "" ]; then
-	INDEX=${#ROW[@]}
-	# query
-	DEVICES="${R_DEVICES}"
-	DRIVE_TEMPS=$(echo $(hddtemp -n ${DEVICES}))
-	TEMP_MAX=$(echo $DRIVE_TEMPS | sed -e 's/\s\+/\n/g' | sort -n | tail -n 1)
-	TEMP_MIN=$(echo $DRIVE_TEMPS | sed -e 's/\s\+/\n/g' | sort -n | head -n 1)
-	# result
-	ROW[${INDEX}]="Drive Temp"
-	(( INDEX ++ ))
-	ROW[${INDEX}]="MIN: $TEMP_MIN MAX: $TEMP_MAX"
-	(( INDEX ++ ))
+        INDEX=${#ROW[@]}
+        # query
+        DEVICES="/dev/sd*" #"${R_DEVICES}"
+        DRIVE_TEMPS=$(echo $(hddtemp -n ${DEVICES} 2> /dev/null))
+        TEMP_MAX=$(echo $DRIVE_TEMPS | sed -e 's/\s\+/\n/g' | sort -n | tail -n 1)
+        TEMP_MIN=$(echo $DRIVE_TEMPS | sed -e 's/\s\+/\n/g' | sort -n | head -n 1)
+        # result
+        ROW[${INDEX}]="Drive Temp"
+        (( INDEX ++ ))
+        ROW[${INDEX}]="MIN: $TEMP_MIN MAX: $TEMP_MAX"
+        (( INDEX ++ ))
 else
-	echo "No devices were found to probe for temperature !"
+        echo "No devices were found to probe for temperature !"
 fi
 #-------------------------------------------------------------------------------
 # 6. CPU load
